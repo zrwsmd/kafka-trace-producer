@@ -1,5 +1,0 @@
-com\parking\kafka\Main.class
-com\parking\kafka\KafkaTraceProducer.class
-com\parking\kafka\SimpleConsumer.class
-com\parking\kafka\TraceConfig.class
-com\parking\kafka\TraceSimulator.class
