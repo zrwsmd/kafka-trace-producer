@@ -1,0 +1,23 @@
+1./opt/kafka/bin/kafka-run-class.sh: line 346: /usr/lib/jvm/java-21-openjdk-amd64/bin/java/bin/java: Not a directory
+/opt/kafka/bin/kafka-run-class.sh: line 346: exec: /usr/lib/jvm/java-21-openjdk-amd64/bin/java/bin/java: cannot execute: Not a directory
+
+
+解决方法:
+# 设置 JAVA_HOME（注意：不要包含 /bin/java，只到 jdk 目录）
+export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+
+# 验证路径正确
+ls $JAVA_HOME/bin/java
+# 应该输出: /usr/lib/jvm/java-21-openjdk-amd64/bin/java
+
+# 使设置永久生效
+echo 'export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64' >> ~/.bashrc
+echo 'export PATH=$JAVA_HOME/bin:$PATH' >> ~/.bashrc
+source ~/.bashrc
+
+2.broker端需要开放9092端口
+1)ufw allow 9092/tcp
+2)云服务器-安全组 → 入站规则，添加：
+协议: TCP
+端口: 9092
+授权对象: 0.0.0.0/0
