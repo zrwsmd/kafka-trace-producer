@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class SimpleConsumer {
 
     public static void main(String[] args) {
-        String servers = args.length > 0 ? args[0] : "localhost:9092";
+        String servers = args.length > 0 ? args[0] : "47.129.128.147:9092";
         String topic   = args.length > 1 ? args[1] : "trace-data";
 
         System.out.println("=== Kafka Trace Consumer ===");

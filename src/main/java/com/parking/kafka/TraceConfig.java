@@ -9,7 +9,7 @@ import java.util.Properties;
 public class TraceConfig {
 
     // -------- Kafka --------
-    private String bootstrapServers = "localhost:9092";
+    private String bootstrapServers = "47.129.128.147:9092";
     private String topic            = "trace-data";
 
     // -------- 发送参数 --------
