@@ -142,7 +142,7 @@ public class TraceSimulator {
 
             // 发送到 Kafka (同步, 带重试)
             try {
-                producer.sendWithRetry(String.valueOf(seq), payloadStr, 5);
+                producer.sendWithRetry(config.getTaskId(), payloadStr, 5);
                 successCount.incrementAndGet();
             } catch (Exception e) {
                 System.err.println("[TraceSimulator] FATAL: seq=" + seq
