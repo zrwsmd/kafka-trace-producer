@@ -4,8 +4,6 @@ import org.apache.kafka.clients.producer.*;
 import org.apache.kafka.common.serialization.StringSerializer;
 
 import java.util.Properties;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -15,7 +13,7 @@ import java.util.concurrent.atomic.AtomicLong;
  *   acks=all        → 所有 ISR 副本确认
  *   enable.idempotence=true → 幂等发送，防重复
  *   retries=5       → 自动重试
- *   同步 send().get() → 每条确认后才发下一条
+ *   同步 send().get() → 等待 Kafka 最终确认结果，避免应用层提前超时后二次补发
  */
 public class KafkaTraceProducer {
 
@@ -25,7 +23,6 @@ public class KafkaTraceProducer {
     // 统计
     private final AtomicLong sentCount   = new AtomicLong(0);
     private final AtomicLong failedCount = new AtomicLong(0);
-    private final AtomicLong retryCount  = new AtomicLong(0);
 
     public KafkaTraceProducer(TraceConfig config) {
         this.topic = config.getTopic();
@@ -48,7 +45,7 @@ public class KafkaTraceProducer {
         props.put(ProducerConfig.COMPRESSION_TYPE_CONFIG,  "lz4");                       // 压缩
 
         // ==== 超时 ====
-        props.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG,     30000);
+        props.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG,     60000);
         props.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG,    120000);
         props.put(ProducerConfig.MAX_BLOCK_MS_CONFIG,           60000);
 
@@ -69,42 +66,13 @@ public class KafkaTraceProducer {
     public RecordMetadata sendSync(String key, String value) throws Exception {
         ProducerRecord<String, String> record = new ProducerRecord<>(topic, key, value);
         try {
-            Future<RecordMetadata> future = producer.send(record);
-            RecordMetadata meta = future.get(30, TimeUnit.SECONDS);
+            RecordMetadata meta = producer.send(record).get();
             sentCount.incrementAndGet();
             return meta;
         } catch (Exception e) {
             failedCount.incrementAndGet();
             throw e;
         }
-    }
-
-    /**
-     * 带重试的同步发送
-     *
-     * @param key       消息 key
-     * @param value     消息 value
-     * @param maxRetry  最大重试次数
-     * @return RecordMetadata
-     * @throws Exception 所有重试都失败后抛出
-     */
-    public RecordMetadata sendWithRetry(String key, String value, int maxRetry) throws Exception {
-        Exception lastException = null;
-        for (int attempt = 1; attempt <= maxRetry; attempt++) {
-            try {
-                return sendSync(key, value);
-            } catch (Exception e) {
-                lastException = e;
-                if (attempt < maxRetry) {
-                    retryCount.incrementAndGet();
-                    System.err.println("[KafkaProducer] send failed (attempt " + attempt
-                            + "/" + maxRetry + "): " + e.getMessage() + ", retrying in "
-                            + (500 * attempt) + "ms...");
-                    Thread.sleep(500L * attempt);
-                }
-            }
-        }
-        throw lastException;
     }
 
     public void flush() {
@@ -115,10 +83,9 @@ public class KafkaTraceProducer {
         producer.flush();
         producer.close();
         System.out.println("[KafkaProducer] closed. sent=" + sentCount.get()
-                + " failed=" + failedCount.get() + " retries=" + retryCount.get());
+                + " failed=" + failedCount.get());
     }
 
     public long getSentCount()   { return sentCount.get(); }
     public long getFailedCount() { return failedCount.get(); }
-    public long getRetryCount()  { return retryCount.get(); }
 }

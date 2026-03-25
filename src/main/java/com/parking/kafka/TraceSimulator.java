@@ -3,9 +3,6 @@ package com.parking.kafka;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -35,9 +32,6 @@ public class TraceSimulator {
 
     // 统计
     private final AtomicLong successCount = new AtomicLong(0);
-    private final AtomicLong retryCount   = new AtomicLong(0);
-    private final List<Long> retrySeqs    = Collections.synchronizedList(new ArrayList<>());
-
     public TraceSimulator(TraceConfig config, KafkaTraceProducer producer) {
         this.config   = config;
         this.producer = producer;
@@ -51,8 +45,6 @@ public class TraceSimulator {
             return;
         }
         successCount.set(0);
-        retryCount.set(0);
-        retrySeqs.clear();
         running = true;
 
         long totalBatches = (config.getMaxFrames() + config.getBatchSize() - 1) / config.getBatchSize();
@@ -140,13 +132,13 @@ public class TraceSimulator {
             String payloadStr = payload.toJSONString();
             frameSent += frameCount;
 
-            // 发送到 Kafka (同步, 带重试)
+            // 发送到 Kafka (同步, 只依赖 Kafka 客户端内部重试)
             try {
-                producer.sendWithRetry(config.getTaskId(), payloadStr, 5);
+                producer.sendSync(config.getTaskId(), payloadStr);
                 successCount.incrementAndGet();
             } catch (Exception e) {
                 System.err.println("[TraceSimulator] FATAL: seq=" + seq
-                        + " all retries failed: " + e.getMessage());
+                        + " send failed after Kafka delivery timeout: " + e.getMessage());
                 break;
             }
 
@@ -179,7 +171,7 @@ public class TraceSimulator {
         System.out.println("========== TraceSimulator 最终统计 ==========");
         System.out.println("总帧数:   " + frameSent + " / " + maxFrames);
         System.out.println("总包数:   " + successCount.get() + " / " + totalBatches);
-        System.out.println("重试次数: " + producer.getRetryCount());
+        System.out.println("发送失败: " + producer.getFailedCount());
         System.out.printf("总耗时:   %.1f 秒 (%.1f 分钟)%n", elapsed/1000.0, elapsed/60000.0);
         System.out.printf("平均速度: %.0f 包/秒, %.0f 帧/秒%n",
                 successCount.get()*1000.0/Math.max(elapsed,1),
