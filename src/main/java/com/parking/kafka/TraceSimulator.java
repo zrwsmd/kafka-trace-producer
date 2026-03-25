@@ -3,6 +3,8 @@ package com.parking.kafka;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -22,6 +24,8 @@ import java.util.concurrent.atomic.AtomicLong;
  * }
  */
 public class TraceSimulator {
+    private static final DateTimeFormatter PROGRESS_TIME_FORMAT =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final TraceConfig config;
     private final KafkaTraceProducer producer;
@@ -148,9 +152,10 @@ public class TraceSimulator {
                 long elapsed = System.currentTimeMillis() - startTime;
                 double speed = seq * 1000.0 / Math.max(elapsed, 1);
                 long eta = (long)((totalBatches - seq) / Math.max(speed, 0.01));
-                System.out.printf("[TraceSimulator] progress: %.1f%% (%d/%d batches, %d frames)"
-                        + "  speed=%.0f batches/s  ETA=%ds%n",
-                        pct, seq, totalBatches, frameSent, speed, eta);
+                String now = LocalDateTime.now().format(PROGRESS_TIME_FORMAT);
+                System.out.printf("[%s] [TraceSimulator] progress: %.1f%% (%d/%d batches, %d frames)"
+                        + "  speed=%.0f batches/s  elapsed=%ds  ETA=%ds%n",
+                        now, pct, seq, totalBatches, frameSent, speed, elapsed / 1000, eta);
             }
 
             // 发送间隔
